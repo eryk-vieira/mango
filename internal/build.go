@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -110,14 +109,10 @@ func (m model) buildApplication() tea.Msg {
 	builder := build.NewBuilder(m.settings)
 	_, errorList := builder.Build()
 
-	time.Sleep(2 * time.Second)
-
 	if len(errorList) > 0 {
 		m.errors = errorList
 		return errorType(m.errors)
 	}
-
-	time.Sleep(2 * time.Second)
 
 	return buildDone(true)
 }

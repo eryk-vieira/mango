@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/eryk-vieira/mango/internal/parsers"
 	"github.com/eryk-vieira/mango/internal/types"
@@ -68,13 +69,15 @@ func (*routerBuilder) scanDirectory(base_path string) ([]file, error) {
 			return err
 		}
 
-		if !info.IsDir() {
-			files = append(files, file{
-				Name:         info.Name(),
-				Path:         path,
-				RelativePath: strings.TrimSuffix(strings.TrimPrefix(path, base_path), info.Name()),
-			})
-		}
+		go func() {
+			if !info.IsDir() {
+				files = append(files, file{
+					Name:         info.Name(),
+					Path:         path,
+					RelativePath: strings.TrimSuffix(strings.TrimPrefix(path, base_path), info.Name()),
+				})
+			}
+		}()
 
 		return nil
 	})
@@ -100,54 +103,64 @@ func (builder *routerBuilder) registerRoutes(files []file) ([]Route, []Errors) {
 	var routes []Route = []Route{}
 	var errorList []Errors = []Errors{}
 
+	var wg sync.WaitGroup
+
 	for _, file := range files {
-		handlerName := builder.Settings.HTTP.HandlerName + ".go"
+		wg.Add(1)
 
-		if file.Name == handlerName {
-			parser := parsers.HandlerParser{}
+		go func() {
+			defer wg.Done()
 
-			signature, err := parser.Parse(file.Path)
+			handlerName := builder.Settings.HTTP.HandlerName + ".go"
 
-			if err != nil {
-				errorList = append(errorList, Errors{
-					FilePath: file.Path,
-					Error:    err,
-				})
+			if file.Name == handlerName {
+				parser := parsers.HandlerParser{}
 
-				continue
-			}
+				signature, err := parser.Parse(file.Path)
 
-			if len(signature.Functions) == 0 {
-				errorList = append(errorList, Errors{
-					FilePath: file.Path,
-					Error:    errors.New(fmt.Sprintf("Handler at %s should have at least one valid http method", file.Path)),
-				})
+				if err != nil {
+					errorList = append(errorList, Errors{
+						FilePath: file.Path,
+						Error:    err,
+					})
 
-				continue
-			}
+					return
+				}
 
-			for _, f := range signature.Functions {
-				var knownMethod = false
+				if len(signature.Functions) == 0 {
+					errorList = append(errorList, Errors{
+						FilePath: file.Path,
+						Error:    errors.New(fmt.Sprintf("Handler at %s should have at least one valid http method", file.Path)),
+					})
 
-				for i := 0; i < len(AllowedMethods); i++ {
-					if AllowedMethods[i] == f.FuncName {
-						knownMethod = true
-						break
+					return
+				}
+
+				for _, f := range signature.Functions {
+					var knownMethod = false
+
+					for i := 0; i < len(AllowedMethods); i++ {
+						if AllowedMethods[i] == f.FuncName {
+							knownMethod = true
+							break
+						}
+					}
+
+					if knownMethod {
+						routes = append(routes, Route{
+							Method:      f.FuncName,
+							Pattern:     re.ReplaceAllString(file.RelativePath, "{$1}"),
+							RouteType:   "handler",
+							FilePath:    filepath.Join(builder.Settings.Package, file.Path),
+							PackageName: signature.PackageName,
+						})
 					}
 				}
-
-				if knownMethod {
-					routes = append(routes, Route{
-						Method:      f.FuncName,
-						Pattern:     re.ReplaceAllString(file.RelativePath, "{$1}"),
-						RouteType:   "handler",
-						FilePath:    filepath.Join(builder.Settings.Package, file.Path),
-						PackageName: signature.PackageName,
-					})
-				}
 			}
-		}
+		}()
 	}
+
+	wg.Wait()
 
 	file, err := os.Create(filepath.Join(".dist", "routes.json"))
 

@@ -103,16 +103,6 @@ func (b *serverBuilder) Build(routes []Route, errList *[]Errors) {
 
 	err = b.copyFolder("./", tempPath)
 
-	cmd := exec.Command("gofmt", "-w", "main.go")
-	cmd.Dir = tempPath
-
-	if b.debugMode {
-		cmd.Stderr = os.Stderr
-		cmd.Stdout = os.Stdout
-	}
-
-	err = cmd.Run()
-
 	if err != nil {
 		*errList = append(*errList, Errors{
 			FilePath: "",
@@ -122,7 +112,7 @@ func (b *serverBuilder) Build(routes []Route, errList *[]Errors) {
 		return
 	}
 
-	cmd = exec.Command("go", "mod", "tidy")
+	cmd := exec.Command("go", "mod", "tidy")
 	cmd.Dir = tempPath
 
 	if b.debugMode {
@@ -181,9 +171,9 @@ func (*serverBuilder) copyFolder(src string, dst string) error {
 			return nil
 		}
 
-		if err := copyFile(path, filepath.Join(dst, path)); err != nil {
-			return err
-		}
+		go func() {
+			copyFile(path, filepath.Join(dst, path))
+		}()
 
 		return nil
 	})

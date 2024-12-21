@@ -108,8 +108,6 @@ func (builder *routerBuilder) registerRoutes(files []file) ([]Route, []Errors) {
 
 			signature, err := parser.Parse(file.Path)
 
-			fmt.Println(err)
-
 			if err != nil {
 				errorList = append(errorList, Errors{
 					FilePath: file.Path,

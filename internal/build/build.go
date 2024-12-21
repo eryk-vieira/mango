@@ -1,8 +1,6 @@
 package build
 
 import (
-	"fmt"
-
 	"github.com/eryk-vieira/mango/internal/types"
 )
 
@@ -23,17 +21,16 @@ func (b *build) Build() ([]Route, []Errors) {
 
 	routes, errorList := builder.Build()
 
-	fmt.Println(errorList)
+	serverBuilder := serverBuilder{
+		Settings:  b.Settings,
+		debugMode: true,
+	}
+
+	serverBuilder.Build(routes, &errorList)
 
 	if len(errorList) > 0 {
 		return []Route{}, errorList
 	}
-
-	serverBuilder := serverBuilder{
-		Settings: b.Settings,
-	}
-
-	serverBuilder.Build(routes)
 
 	return routes, errorList
 }

@@ -1,6 +1,7 @@
 package build
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -41,7 +42,7 @@ type serverBuilder struct {
 	debugMode bool
 }
 
-func (b *serverBuilder) Build(routes []Route) {
+func (b *serverBuilder) Build(routes []Route, errList *[]Errors) {
 	isDebug, err := strconv.ParseBool(os.Getenv("NEXTGO_DEBUG_MODE"))
 
 	if err != nil {
@@ -79,7 +80,12 @@ func (b *serverBuilder) Build(routes []Route) {
 	file, err := os.Create(filepath.Join(tempPath, "main.go"))
 
 	if err != nil {
-		panic(err)
+		*errList = append(*errList, Errors{
+			FilePath: "",
+			Error:    err,
+		})
+
+		return
 	}
 
 	defer file.Close()
@@ -87,7 +93,12 @@ func (b *serverBuilder) Build(routes []Route) {
 	err = tmpl.Execute(file, data)
 
 	if err != nil {
-		panic(err)
+		*errList = append(*errList, Errors{
+			FilePath: "",
+			Error:    err,
+		})
+
+		return
 	}
 
 	err = b.copyFolder("./", tempPath)
@@ -103,7 +114,12 @@ func (b *serverBuilder) Build(routes []Route) {
 	err = cmd.Run()
 
 	if err != nil {
-		panic(err)
+		*errList = append(*errList, Errors{
+			FilePath: "",
+			Error:    err,
+		})
+
+		return
 	}
 
 	cmd = exec.Command("go", "mod", "tidy")
@@ -117,7 +133,12 @@ func (b *serverBuilder) Build(routes []Route) {
 	err = cmd.Run()
 
 	if err != nil {
-		panic(err)
+		*errList = append(*errList, Errors{
+			FilePath: "",
+			Error:    err,
+		})
+
+		return
 	}
 
 	cmd = exec.Command("go", "build", "-o", filepath.Join(workDir, ".dist")+"/server", tempPath)
@@ -128,10 +149,15 @@ func (b *serverBuilder) Build(routes []Route) {
 		cmd.Stdout = os.Stdout
 	}
 
-	err = cmd.Run()
+	output, err := cmd.CombinedOutput()
 
 	if err != nil {
-		panic(err)
+		*errList = append(*errList, Errors{
+			FilePath: "Error building the application",
+			Error:    errors.New(string(output)),
+		})
+
+		return
 	}
 
 	defer os.RemoveAll(tempPath)

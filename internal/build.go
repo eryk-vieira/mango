@@ -72,11 +72,10 @@ func (m model) View() string {
 		strBuilder := strings.Builder{}
 
 		for _, e := range m.errors {
+			strBuilder.WriteString("\n")
 			strBuilder.WriteString(e.FilePath)
 			strBuilder.WriteString("\n")
-			strBuilder.WriteString("\n")
 			strBuilder.WriteString(opacityStyle.Render(e.Error.Error()))
-			strBuilder.WriteString("\n")
 			strBuilder.WriteString("\n")
 		}
 
@@ -119,8 +118,6 @@ func (m model) buildApplication() tea.Msg {
 	}
 
 	time.Sleep(2 * time.Second)
-
-	fmt.Println("Hello 2")
 
 	return buildDone(true)
 }

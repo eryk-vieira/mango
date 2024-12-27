@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/eryk-vieira/mango/internal"
@@ -11,22 +13,32 @@ import (
 )
 
 func main() {
-	command := getCommand(os.Args[1:])
+	command, err := getFrameworkCommand()
+
+	if err != nil {
+		log.Fatalln(err)
+		return
+	}
+
+	// Remove the index 1 of the array.
+	// This should be done because the framework command does not follow the flag pattern
+	os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
 
 	rootDir := flag.String("root", "./", "Project root folder")
-	configFile := flag.String("config", "nextgo.json", "Config file")
-
-	// Normalize os.Args removing the command.
-	// This needs to be done because the command does not follow the flag pattern.
-	// The flag should be parsed just after this execution
-	normalizeArgs()
+	configFile := flag.String("config", "mango.json", "Config file")
 
 	flag.Parse()
 
-	err := os.Chdir(*rootDir)
+	if command == "help" {
+		flag.Usage()
+
+		return
+	}
+
+	err = os.Chdir(*rootDir)
 
 	if err != nil {
-		panic(*rootDir + " Does not exists")
+		log.Fatalln(err)
 	}
 
 	settings := parseSettings(*configFile)
@@ -62,10 +74,13 @@ func parseSettings(configPath string) *types.Settings {
 	return &settings
 }
 
-func getCommand(args []string) string {
-	return args[0]
+func getFrameworkCommand() (string, error) {
+	if len(os.Args) == 0 {
+		return "", errors.New("At least one command should be specified.")
+	}
+
+	return os.Args[1:][0], nil
 }
 
 func normalizeArgs() {
-	os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
 }

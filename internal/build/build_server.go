@@ -16,6 +16,10 @@ import (
 	"github.com/eryk-vieira/mango/internal/types"
 )
 
+const (
+	frameworkTmpDir = "/mango/"
+)
+
 // TemplateData holds data to fill the ServerTemplate
 type TemplateData struct {
 	Imports []ImportData
@@ -43,6 +47,10 @@ type serverBuilder struct {
 }
 
 func (b *serverBuilder) Build(routes []Route, errList *[]Errors) {
+	tempPath := filepath.Join(os.TempDir(), frameworkTmpDir)
+
+	defer os.RemoveAll(tempPath)
+
 	isDebug, err := strconv.ParseBool(os.Getenv("NEXTGO_DEBUG_MODE"))
 
 	if err != nil {
@@ -51,9 +59,16 @@ func (b *serverBuilder) Build(routes []Route, errList *[]Errors) {
 		b.debugMode = true
 	}
 
-	os.Mkdir(os.TempDir()+"/nextgo", fs.ModePerm)
+	err = os.Mkdir(tempPath, fs.ModePerm)
 
-	tempPath := filepath.Join(os.TempDir(), "nextgo/")
+	if err != nil {
+		*errList = append(*errList, Errors{
+			FilePath: "",
+			Error:    err,
+		})
+
+		return
+	}
 
 	data := TemplateData{}
 
@@ -73,7 +88,16 @@ func (b *serverBuilder) Build(routes []Route, errList *[]Errors) {
 
 	data.Port = "8080"
 
-	workDir, _ := os.Getwd()
+	workDir, err := os.Getwd()
+
+	if err != nil {
+		*errList = append(*errList, Errors{
+			FilePath: "",
+			Error:    err,
+		})
+
+		return
+	}
 
 	tmpl := template.Must(template.New("server").Parse(templates.ServerTemplate))
 
@@ -115,17 +139,12 @@ func (b *serverBuilder) Build(routes []Route, errList *[]Errors) {
 	cmd := exec.Command("go", "mod", "tidy")
 	cmd.Dir = tempPath
 
-	if b.debugMode {
-		cmd.Stderr = os.Stderr
-		cmd.Stdout = os.Stdout
-	}
-
-	err = cmd.Run()
+	output, err := cmd.CombinedOutput()
 
 	if err != nil {
 		*errList = append(*errList, Errors{
-			FilePath: "",
-			Error:    err,
+			FilePath: "Error installing dependencies",
+			Error:    errors.New(string(output)),
 		})
 
 		return
@@ -139,7 +158,7 @@ func (b *serverBuilder) Build(routes []Route, errList *[]Errors) {
 		cmd.Stdout = os.Stdout
 	}
 
-	output, err := cmd.CombinedOutput()
+	output, err = cmd.CombinedOutput()
 
 	if err != nil {
 		*errList = append(*errList, Errors{
@@ -150,7 +169,6 @@ func (b *serverBuilder) Build(routes []Route, errList *[]Errors) {
 		return
 	}
 
-	defer os.RemoveAll(tempPath)
 }
 
 func (*serverBuilder) copyFolder(src string, dst string) error {

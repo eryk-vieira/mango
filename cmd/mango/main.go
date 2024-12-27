@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 
@@ -11,18 +12,24 @@ import (
 
 func main() {
 	command := getCommand(os.Args[1:])
-	workDir := os.Args[3:]
 
-	if len(workDir) > 0 {
-		err := os.Chdir(workDir[0])
+	rootDir := flag.String("root", "./", "Project root folder")
+	configFile := flag.String("config", "nextgo.json", "Config file")
 
-		if err != nil {
-			fmt.Printf("Error changing directory: %v\n", err)
-			return
-		}
+	// Normalize os.Args removing the command.
+	// This needs to be done because the command does not follow the flag pattern.
+	// The flag should be parsed just after this execution
+	normalizeArgs()
+
+	flag.Parse()
+
+	err := os.Chdir(*rootDir)
+
+	if err != nil {
+		panic(*rootDir + " Does not exists")
 	}
 
-	settings := parseSettings(os.Args[2:])
+	settings := parseSettings(*configFile)
 
 	if command == "build" {
 		internal.Build(settings)
@@ -37,19 +44,13 @@ func main() {
 	}
 }
 
-func parseSettings(args []string) *types.Settings {
+func parseSettings(configPath string) *types.Settings {
 	var settings types.Settings
 
-	var configFile string = "nextgo.json"
-
-	if len(args) > 0 {
-		configFile = args[0]
-	}
-
-	jsonFile, err := os.ReadFile(configFile)
+	jsonFile, err := os.ReadFile(configPath)
 
 	if err != nil {
-		panic(fmt.Sprintf("%s file not found", configFile))
+		panic(fmt.Sprintf("%s file not found", configPath))
 	}
 
 	err = json.Unmarshal(jsonFile, &settings)
@@ -63,4 +64,8 @@ func parseSettings(args []string) *types.Settings {
 
 func getCommand(args []string) string {
 	return args[0]
+}
+
+func normalizeArgs() {
+	os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
 }

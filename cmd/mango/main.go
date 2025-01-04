@@ -76,11 +76,8 @@ func parseSettings(configPath string) *types.Settings {
 
 func getFrameworkCommand() (string, error) {
 	if len(os.Args) == 0 {
-		return "", errors.New("At least one command should be specified.")
+		return "", errors.New("at least one command should be specified")
 	}
 
 	return os.Args[1:][0], nil
-}
-
-func normalizeArgs() {
 }

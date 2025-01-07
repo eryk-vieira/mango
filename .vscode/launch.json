@@ -1,13 +1,14 @@
 {
   "version": "0.2.0",
   "configurations": [
+
     {
       "name": "Remote Debug Mango",
       "type": "go",
       "request": "attach",
       "mode": "remote",
       "remotePath": "${workspaceFolder}",
-      "port": 2345,
+      "port": 46407,
       "host": "localhost"
     }
   ]

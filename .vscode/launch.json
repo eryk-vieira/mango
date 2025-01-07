@@ -3,7 +3,7 @@
   "configurations": [
 
     {
-      "name": "Remote Debug Mango",
+      "name": "Debug Mango",
       "type": "go",
       "request": "attach",
       "mode": "remote",
